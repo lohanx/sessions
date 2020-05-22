@@ -1,8 +1,6 @@
 package sessions
 
 import (
-	"bytes"
-	"encoding/gob"
 	"github.com/go-redis/redis/v7"
 	"time"
 )
@@ -31,7 +29,7 @@ func (store *RedisStore) SessionRead(sid string) (*Session, error) {
 		return nil, err
 	}
 	sess := NewSession(sid, make(map[string]interface{}), store.expire)
-	if err = gob.NewDecoder(bytes.NewBuffer(data)).Decode(&sess.values); err != nil {
+	if err = unmarshal(data, &sess.values); err != nil {
 		return nil, err
 	}
 	return sess, store.conn.Expire(sid, store.expire).Err()
@@ -54,9 +52,9 @@ func (store *RedisStore) SessionWrite(sess *Session) error {
 	if !sess.changed {
 		return nil
 	}
-	buff := bytes.Buffer{}
-	if err := gob.NewEncoder(&buff).Encode(&sess.values); err != nil {
+	data, err := marshal(&sess.values)
+	if err != nil {
 		return err
 	}
-	return store.conn.Set(sess.sid, buff.Bytes(), sess.expire).Err()
+	return store.conn.Set(sess.sid, data, sess.expire).Err()
 }
