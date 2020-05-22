@@ -4,7 +4,7 @@ import (
         "bytes"
         "encoding/gob"
         "fmt"
-        "github.com/go-redis/redis/v7"
+        "github.com/go-redis/redis/v8"
         "github.com/vmihailenco/msgpack/v4"
         "net/http"
         "sync"
@@ -16,7 +16,7 @@ type Manager struct {
         mutex      sync.Mutex
         expire     int64
         Provider   Provider
-        Serialize  string // msgpack or gob
+        Serializer string // msgpack or gob
 }
 
 var (
@@ -25,18 +25,18 @@ var (
 )
 
 func NewManager(cookieName string, expire int64) *Manager {
-        return &Manager{cookieName: cookieName, expire: expire, Serialize: "msgpack"}
+        return &Manager{cookieName: cookieName, expire: expire, Serializer: "msgpack"}
 }
 
-func (ss *Manager) UseSerialize(t string) {
-        ss.Serialize = t
+func UseSerializer(t string) {
+        GSessions.Serializer = t
 }
 
-func InitRedisSessions(cookieName string, expire int64, conn *redis.Client) {
+func InitRedisSessions(cookieName string, expire, timeout int64, conn *redis.Client) {
         GSessions = &Manager{
                 cookieName: cookieName,
                 expire:     expire,
-                Provider:   NewRedisStore(conn, time.Duration(expire)*time.Second),
+                Provider:   NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second),
         }
         StoreInstance = GSessions.Provider
 }
@@ -70,7 +70,7 @@ func (ss *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (*Sessio
 }
 
 func marshal(v interface{}) ([]byte, error) {
-        switch GSessions.Serialize {
+        switch GSessions.Serializer {
         case "gob":
                 buff := bytes.Buffer{}
                 err := gob.NewEncoder(&buff).Encode(v)
@@ -82,7 +82,7 @@ func marshal(v interface{}) ([]byte, error) {
 }
 
 func unmarshal(data []byte, v interface{}) error {
-        switch GSessions.Serialize {
+        switch GSessions.Serializer {
         case "gob":
                 buff := bytes.NewReader(data)
                 return gob.NewDecoder(buff).Decode(v)

@@ -2,10 +2,12 @@
 
 - gin
 ```go
-    sessions.InitRedisSessions("session_name",1800,redis.NewClint(&redis.Options{
+    sessions.InitRedisSessions("session_name",1800,1,redis.NewClint(&redis.Options{
         Addr: "127.0.0.1:6379",
         DB: 0,
     }))
+    //sessions.UseSerializer("serializer") //gob or msgpack
+
     app := gin.New()
     app.Use(func(ctx *gin.Context) {
         session,_ := sessions.SessionStart(ctx.Write,ctx.Request)
