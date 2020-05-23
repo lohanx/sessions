@@ -33,11 +33,8 @@ func UseSerializer(t string) {
 }
 
 func InitRedisSessions(cookieName string, expire, timeout int64, conn *redis.Client) {
-        GSessions = &Manager{
-                cookieName: cookieName,
-                expire:     expire,
-                Provider:   NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second),
-        }
+        GSessions = NewManager(cookieName,expire)
+        GSessions.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
         StoreInstance = GSessions.Provider
 }
 
