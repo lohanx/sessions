@@ -2,13 +2,16 @@ package sessions
 
 import (
         "bytes"
+        "encoding/base64"
         "encoding/gob"
         "fmt"
         "github.com/go-redis/redis/v8"
+        uuid "github.com/satori/go.uuid"
         "github.com/vmihailenco/msgpack/v4"
         "net/http"
         "sync"
         "time"
+        "unsafe"
 )
 
 type Manager struct {
@@ -33,7 +36,7 @@ func UseSerializer(t string) {
 }
 
 func InitRedisSessions(cookieName string, expire, timeout int64, conn *redis.Client) {
-        GSessions = NewManager(cookieName,expire)
+        GSessions = NewManager(cookieName, expire)
         GSessions.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
         StoreInstance = GSessions.Provider
 }
@@ -48,7 +51,7 @@ func (ss *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (*Sessio
         cookie, err := r.Cookie(ss.cookieName)
         var session *Session
         if err != nil || cookie.Value == "" {
-                sid := ss.generateSessionID()
+                sid := ss.generate()
                 session, _ = ss.Provider.SessionInit(sid)
                 cookie := http.Cookie{
                         Name:     ss.cookieName,
@@ -89,6 +92,16 @@ func unmarshal(data []byte, v interface{}) error {
         return fmt.Errorf("unsupported serializer")
 }
 
-func (ss *Manager) generateSessionID() string {
-        return GenerateRandString(24)
+func (ss *Manager) generate() string {
+        data := uuid.NewV4().Bytes()
+        std := base64.StdEncoding
+        buff := make([]byte, std.EncodedLen(len(data)))
+        std.Encode(buff, data)
+        for i,b := range buff {
+                if b == '/' {
+                        buff[i] = '$'
+                }
+        }
+        buff = buff[:22]
+        return *(*string)(unsafe.Pointer(&buff))
 }
