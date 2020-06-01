@@ -32,7 +32,7 @@ func UseSerializer(t string) {
         GlobalManager.Serializer = t
 }
 
-func NewManagerWithRedisStore(cookieName string, expire, timeout int64, conn *redis.Client) {
+func NewManagerWithRedis(cookieName string, expire, timeout int64, conn *redis.Client) {
         GlobalManager = NewManager(cookieName, expire)
         GlobalManager.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
 }
