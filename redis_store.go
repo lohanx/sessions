@@ -18,7 +18,7 @@ func NewRedisStore(conn *redis.Client, expire, timeout time.Duration) *RedisStor
 
 //Initializes a new session
 func (store *RedisStore) SessionInit(sid string) (*Session, error) {
-        return NewSession(sid, make(map[string]interface{}), store.expire), nil
+        return NewSession(sid, make(map[interface{}]interface{}), store.expire), nil
 }
 
 //Read an existing session
@@ -32,7 +32,7 @@ func (store *RedisStore) SessionRead(sid string) (*Session, error) {
                 }
                 return nil, err
         }
-        sess := NewSession(sid, make(map[string]interface{}), store.expire)
+        sess := NewSession(sid, make(map[interface{}]interface{}), store.expire)
         if err = unmarshal(data, &sess.values); err != nil {
                 return nil, err
         }

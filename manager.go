@@ -22,27 +22,27 @@ type Manager struct {
         Serializer string // msgpack or gob
 }
 
-var (
-        GSessions     *Manager
-        StoreInstance Provider
-)
+var GlobalManager *Manager
 
 func NewManager(cookieName string, expire int64) *Manager {
         return &Manager{cookieName: cookieName, expire: expire, Serializer: "msgpack"}
 }
 
 func UseSerializer(t string) {
-        GSessions.Serializer = t
+        GlobalManager.Serializer = t
 }
 
-func InitRedisSessions(cookieName string, expire, timeout int64, conn *redis.Client) {
-        GSessions = NewManager(cookieName, expire)
-        GSessions.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
-        StoreInstance = GSessions.Provider
+func NewManagerWithRedisStore(cookieName string, expire, timeout int64, conn *redis.Client) {
+        GlobalManager = NewManager(cookieName, expire)
+        GlobalManager.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
 }
 
 func SessionStart(w http.ResponseWriter, r *http.Request) (*Session, error) {
-        return GSessions.SessionStart(w, r)
+        return GlobalManager.SessionStart(w, r)
+}
+
+func SessionSave(session *Session) error {
+        return GlobalManager.Provider.SessionWrite(session)
 }
 
 func (ss *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (*Session, error) {
@@ -70,7 +70,7 @@ func (ss *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (*Sessio
 }
 
 func marshal(v interface{}) ([]byte, error) {
-        switch GSessions.Serializer {
+        switch GlobalManager.Serializer {
         case "gob":
                 buff := bytes.Buffer{}
                 err := gob.NewEncoder(&buff).Encode(v)
@@ -82,7 +82,7 @@ func marshal(v interface{}) ([]byte, error) {
 }
 
 func unmarshal(data []byte, v interface{}) error {
-        switch GSessions.Serializer {
+        switch GlobalManager.Serializer {
         case "gob":
                 buff := bytes.NewReader(data)
                 return gob.NewDecoder(buff).Decode(v)
@@ -97,9 +97,9 @@ func (ss *Manager) generate() string {
         std := base64.StdEncoding
         buff := make([]byte, std.EncodedLen(len(data)))
         std.Encode(buff, data)
-        for i,b := range buff {
+        for i, b := range buff {
                 if b == '/' {
-                        buff[i] = '$'
+                        buff[i] = '_'
                 }
         }
         buff = buff[:22]
