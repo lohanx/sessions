@@ -14,35 +14,41 @@ import (
         "unsafe"
 )
 
+const defaultSerializer = "msgpack"
+
 type Manager struct {
         cookieName string
         mutex      sync.Mutex
         expire     int64
         Provider   Provider
-        Serializer string // msgpack or gob
+        serializer string // msgpack or gob
 }
 
-var GlobalManager *Manager
+var _manager *Manager
 
 func NewManager(cookieName string, expire int64) *Manager {
-        return &Manager{cookieName: cookieName, expire: expire, Serializer: "msgpack"}
+        return &Manager{cookieName: cookieName, expire: expire, serializer: defaultSerializer}
 }
 
 func UseSerializer(t string) {
-        GlobalManager.Serializer = t
+        if t == "msgpack" || t == "gob" {
+                _manager.serializer = t
+        } else {
+                panic(fmt.Sprintf("Unsupported serializer:%s", t))
+        }
 }
 
 func NewManagerWithRedis(cookieName string, expire, timeout int64, conn *redis.Client) {
-        GlobalManager = NewManager(cookieName, expire)
-        GlobalManager.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
+        _manager = NewManager(cookieName, expire)
+        _manager.Provider = NewRedisStore(conn, time.Duration(expire)*time.Second, time.Duration(timeout)*time.Second)
 }
 
 func SessionStart(w http.ResponseWriter, r *http.Request) (*Session, error) {
-        return GlobalManager.SessionStart(w, r)
+        return _manager.SessionStart(w, r)
 }
 
 func SessionSave(session *Session) error {
-        return GlobalManager.Provider.SessionWrite(session)
+        return _manager.Provider.SessionWrite(session)
 }
 
 func (ss *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (*Session, error) {
@@ -70,7 +76,7 @@ func (ss *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (*Sessio
 }
 
 func marshal(v interface{}) ([]byte, error) {
-        switch GlobalManager.Serializer {
+        switch _manager.serializer {
         case "gob":
                 buff := bytes.Buffer{}
                 err := gob.NewEncoder(&buff).Encode(v)
@@ -82,7 +88,7 @@ func marshal(v interface{}) ([]byte, error) {
 }
 
 func unmarshal(data []byte, v interface{}) error {
-        switch GlobalManager.Serializer {
+        switch _manager.serializer {
         case "gob":
                 buff := bytes.NewReader(data)
                 return gob.NewDecoder(buff).Decode(v)

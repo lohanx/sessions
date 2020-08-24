@@ -56,7 +56,7 @@ func (s *Session) Delete(key interface{}) {
         s.mutex.Unlock()
 }
 
-func (s *Session) SetFlush(key interface{}, value interface{}) {
+func (s *Session) SetFlush(key, value interface{}) {
         s.mutex.Lock()
         s.destroyState = false
         s.values[s.flushKey(key)] = value
